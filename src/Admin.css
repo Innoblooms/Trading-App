@@ -1,0 +1,89 @@
+/* General container styles */
+.container-fluid {
+    margin-top: 20px;
+}
+
+/* Sidebar styles */
+.sidebar {
+    background-color: #f8f9fa;
+    padding: 20px;
+    border-right: 1px solid #dee2e6;
+}
+
+.sidebar h2 {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.sidebar .list-group {
+    margin-bottom: 1rem;
+}
+
+.sidebar .list-group-item {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+}
+
+.sidebar .list-group-item a {
+    text-decoration: none;
+    color: #007bff;
+}
+
+.sidebar .list-group-item a:hover {
+    text-decoration: underline;
+}
+
+/* Main content styles */
+.main-content {
+    padding: 20px;
+}
+
+.main-content h2 {
+    font-size: 1.75rem;
+    margin-bottom: 1.5rem;
+}
+
+.text-danger {
+    color: #dc3545;
+}
+
+.card {
+    margin-bottom: 20px;
+}
+
+.user-details {
+    padding: 20px;
+}
+
+/* User details styling */
+.user-details img {
+    display: block;
+    max-width: 200px; /* Set maximum width */
+    height: auto; /* Maintain aspect ratio */
+    margin: 10px 15px 10px 0; /* Add margin around images */
+    border: 1px solid #dee2e6; /* Optional border for better visibility */
+    border-radius: 4px; /* Optional rounded corners */
+}
+
+/* Container for images to manage gaps */
+.image-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px; /* Adjust gap size between images */
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .sidebar {
+        padding: 10px;
+    }
+
+    .main-content {
+        padding: 10px;
+    }
+
+    .user-details img {
+        max-width: 100px; /* Reduce image size on smaller screens */
+        margin: 5px 10px 5px 0; /* Adjust margin for smaller screens */
+    }
+}
