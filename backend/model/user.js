@@ -147,7 +147,7 @@ User.updateById = (id, user, result) => {
         result(err, null);
         return;
       }
-      if (res.affectedRows == 0) {
+      if (res.affectedRows === 0) {
         // not found user with the id
         result({ kind: "not_found" }, null);
         return;
@@ -167,7 +167,7 @@ User.remove = (id, result) => {
         return;
       }
   
-      if (res.affectedRows == 0) {
+      if (res.affectedRows === 0) {
         // not found User with the id
         result({ kind: "not_found" }, null);
         return;
