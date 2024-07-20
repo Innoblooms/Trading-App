@@ -3,6 +3,8 @@ const bcrypt = require("bcrypt")
 const jwt = require('jsonwebtoken')
 const upload = require("../middlewares/multer");
 const db = require("../model/db.js");
+const otpGenerator = require('otp-generator');
+const nodemailer = require('nodemailer')
 
 const _user = {}
 
@@ -11,6 +13,14 @@ _user.uploadFiles = upload.fields([
   { name: 'panImage', maxCount: 1 },
   { name: 'bank_statements', maxCount: 10}
 ]);
+
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: 'your_email', 
+    pass: 'your_password' 
+  }
+});
 
 //--------------Signup API Start----------------//
 _user.create = async (req, res) => {
@@ -21,7 +31,6 @@ _user.create = async (req, res) => {
   }
 
   try {
-
     db.query("SELECT * FROM signup WHERE email = ?", [email], async (err, results) => {
       if (err) {
         console.error("Database query error:", err);
@@ -33,7 +42,8 @@ _user.create = async (req, res) => {
       }
 
       const hashedPassword = await bcrypt.hash(password, 10);
-      console.log('Hashed Password:', hashedPassword);
+
+      const otp = otpGenerator.generate(6, { digits: true, alphabets: false, upperCase: false, specialChars: false });
 
       const adhaarImage = req.files && req.files['adhaarImage'] ? req.files['adhaarImage'][0].filename : null;
       const panImage = req.files && req.files['panImage'] ? req.files['panImage'][0].filename : null;
@@ -45,17 +55,33 @@ _user.create = async (req, res) => {
         password: hashedPassword,
         role,
         age,
+        otp,
         adhaarImage,
         panImage,
         bank_statements
       });
 
-      User.create(user, (err, data) => {
+      User.create(user, async (err, data) => {
         if (err) {
           console.error("Error creating user:", err);
           return res.status(500).send({ message: err.message || "Some error occurred while creating the User." });
         }
-        res.status(201).send(data);
+
+        const mailOptions = {
+          from: 'your_email',
+          to: email,
+          subject: 'OTP for Account Verification',
+          text: `Your OTP for account verification is: ${otp}`
+        };
+
+        transporter.sendMail(mailOptions, (error, info) => {
+          if (error) {
+            console.error('Error sending email:', error);
+            return res.status(500).send({ message: 'Failed to send OTP via email.' });
+          }
+          console.log('Email sent:', info.response);
+          res.status(201).send({ message: 'User created successfully. OTP sent to email.' });
+        });
       });
     });
   } catch (error) {
@@ -63,64 +89,103 @@ _user.create = async (req, res) => {
     res.status(500).send({ message: "An error occurred while hashing the password." });
   }
 };
-
 //--------------Signup API End----------------//
+
+//--------------OTP verify API start----------------//
+_user.verifyOTP = (req, res) => {
+  const { email, otp } = req.body;
+
+  if (!email || !otp) {
+    return res.status(400).send({ message: "Email and OTP are required." });
+  }
+
+  User.findByEmail(email, async (err, user) => {
+    if (err) {
+      console.error("Database query error:", err);
+      return res.status(500).send({ message: "Database query error" });
+    }
+
+    if (!user) {
+      return res.status(404).send({ message: "User not found." });
+    }
+
+    const savedOTP = user.otp;
+
+    if (otp !== savedOTP) {
+      return res.status(400).send({ message: "Invalid OTP." });
+    }
+
+    User.updateVerifiedStatus(user.id, (err, data) => {
+      if (err) {
+        console.error("Error updating verified status:", err);
+        return res.status(500).send({ message: "Error updating verified status." });
+      }
+      res.status(200).send({ message: "User verified successfully." });
+    });
+  });
+};
+//--------------OTP verify API end----------------//
 
 //--------------Login API Start----------------//
 _user.login = async (req, res) => {
+  if (!req.body) {
+    return res.status(400).send({
+      message: "Content cannot be empty!"
+    });
+  }
 
-    if (!req.body) {
-      return res.status(400).send({
-        message: "Content cannot be empty!"
-      });
-    }
-  
-    const { email, password } = req.body;
-  
-    try {
-      User.findByEmail(email, async (err, user) => {
-        if (err) {
-          console.error("Error finding user:", err);
-          return res.status(500).send({
-            message: err.message || "Some error occurred while retrieving the User."
-          });
-        }
-  
-        if (!user) {
-          return res.status(404).send({
-            message: "User not found."
-          });
-        }
-  
-        const isMatch = await bcrypt.compare(password, user.password);
-  
-        if (!isMatch) {
-          return res.status(401).send({
-            message: "Invalid password."
-          });
-        }
+  const { email, password } = req.body;
 
-        const token = jwt.sign({ userId: user.id, role: user.role }, 'Trading_App', {
-          expiresIn: '1h',
-          });
-  
-        return res.status(200).send({
-          message: "Login successful.",
-          user: {
-            id: user.id,
-            name: user.name,
-            email: user.email,
-            token: token
-          }
+  try {
+    User.findByEmail(email, async (err, user) => {
+      if (err) {
+        console.error("Error finding user:", err);
+        return res.status(500).send({
+          message: err.message || "Some error occurred while retrieving the User."
         });
+      }
+
+      if (!user) {
+        return res.status(404).send({
+          message: "User not found."
+        });
+      }
+
+      if (user.verified === 0) {
+        return res.status(403).send({
+          message: "Not verified. Please verify your account to login."
+        });
+      }
+
+      const isMatch = await bcrypt.compare(password, user.password);
+
+      if (!isMatch) {
+        return res.status(401).send({
+          message: "Invalid password."
+        });
+      }
+
+      const token = jwt.sign({ userId: user.id, role: user.role }, 'Trading_App', {
+        expiresIn: '1h',
       });
-    } catch (error) {
-      console.error("Error during login:", error);
-      return res.status(500).send({
-        message: "An error occurred during login."
+
+      return res.status(200).send({
+        message: "Login successful.",
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          token: token
+        }
       });
-    }
-  };
+    });
+  } catch (error) {
+    console.error("Error during login:", error);
+    return res.status(500).send({
+      message: "An error occurred during login."
+    });
+  }
+};
 //--------------Login API End----------------//
 
 //--------------Get All User API Start----------------//

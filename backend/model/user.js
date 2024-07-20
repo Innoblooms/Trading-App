@@ -6,12 +6,14 @@ const User = function(user) {
   this.password = user.password;
   // this.gender = user.gender;
   this.age = user.age;
+  this.otp = user.otp;
   this.adhaarImage = user.adhaarImage || null;
   this.panImage = user.panImage || null;
   this.bank_statements = user.bank_statements || null;
   // this.investmentMode = user.investmentMode;
   // this.returningCurrency = user.returningCurrency;
   this.role = user.role || 'user';
+  this.verified = user.verified || false
 };
 
 
@@ -26,7 +28,25 @@ User.create = (newUser, result) => {
     result(null, { id: res.insertId, ...newUser });
   });
 };
-  
+
+
+User.updateVerifiedStatus = (userId, result) => {
+  db.query("UPDATE signup SET verified = true WHERE id = ?", userId, (err, res) => {
+    if (err) {
+      console.error("Error updating verified status:", err);
+      result(err, null);
+      return;
+    }
+    if (res.affectedRows === 0) {
+      // Not found User with the id
+      result({ message: "User not found." }, null);
+      return;
+    }
+    console.log("User verified successfully.");
+    result(null, { message: "User verified successfully." });
+  });
+};
+
 
 User.findByEmail = (email, result) => {
   db.query("SELECT * FROM signup WHERE email = ?", email, (err, res) => {
